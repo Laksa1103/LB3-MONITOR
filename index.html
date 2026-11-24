@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#020617">
+<title>LB3 Monitor V3 - Pie Chart</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<script>tailwind.config={theme:{extend:{fontFamily:{sans:['Inter','sans-serif'],mono:['JetBrains Mono','monospace']}}}}</script>
+<style>body{font-family:'Inter',sans-serif;-webkit-tap-highlight-color:transparent}.code-font{font-family:'JetBrains Mono',monospace}</style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen pb-24">
+<header class="bg-slate-900/95 border-b border-slate-800 sticky top-0 z-40 px-4 py-3 flex items-center justify-between">
+<div class="flex items-center space-x-2.5"><div class="bg-gradient-to-tr from-emerald-600 to-teal-500 p-2 rounded-xl"><i class="fa-solid fa-biohazard"></i></div><div><h1 class="font-extrabold text-sm">MONITORING LB3 V3</h1><p class="text-[10px] text-slate-400">Grafik Pie • Edit • Foto • FIFO</p></div></div>
+</header>
+<main class="max-w-md mx-auto p-4 space-y-4">
+<div id="tab-dashboard" class="space-y-4 view-section">
+<div class="bg-gradient-to-r from-emerald-950 to-slate-900 border border-emerald-800/60 rounded-2xl p-4 flex items-center justify-between"><div><div class="text-xs font-bold text-emerald-400">Siap Laporan Excel (.xlsx)</div><p class="text-[11px] text-slate-300">Saldo FIFO + Grafik Pie otomatis update. Tarik di tab Excel & QR.</p></div></div>
+<div class="grid grid-cols-2 gap-3">
+<div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5"><div class="text-[10px] font-bold text-slate-400 uppercase">Saldo Limbah TPS</div><div id="m-saldo" class="text-2xl font-extrabold code-font">0</div><div class="text-[10px] text-slate-400 mt-1 flex justify-between"><span>Masuk: <b id="m-masuk" class="text-emerald-400">0</b></span><span>Keluar: <b id="m-keluar" class="text-sky-400">0</b></span></div></div>
+<div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5"><div class="text-[10px] font-bold text-rose-400 uppercase">Terlambat (>180 Hr)</div><div id="m-terlambat" class="text-2xl font-extrabold text-rose-400 code-font">0</div><div class="text-[10px] text-rose-300/80 mt-1">Prioritas Diangkut</div></div>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex justify-between items-center"><div><div class="text-[10px] font-bold text-emerald-400 uppercase">Status Aman</div><div id="m-aman" class="text-lg font-extrabold text-emerald-400 code-font">0 Lot</div></div><i class="fa-solid fa-shield-check text-emerald-500/30 text-2xl"></i></div>
+<div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex justify-between items-center"><div><div class="text-[10px] font-bold text-amber-400 uppercase">Segera Angkut</div><div id="m-warning" class="text-lg font-extrabold text-amber-400 code-font">0 Lot</div></div><i class="fa-solid fa-clock text-amber-500/30 text-2xl"></i></div>
+</div>
+<div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+<div class="flex items-center justify-between"><h3 class="text-xs font-bold">Grafik Status Masa Simpan</h3><span class="text-[10px] bg-slate-950 border border-slate-800 px-2 py-0.5 rounded">Live</span></div>
+<div class="relative h-52 w-full flex justify-center"><canvas id="pieChart"></canvas></div>
+<div class="grid grid-cols-3 gap-2 text-center text-[10px]">
+<div class="bg-emerald-950/50 border border-emerald-900 rounded-xl py-2"><div class="font-bold text-emerald-400" id="pie-aman">0</div><div class="text-slate-400">AMAN</div></div>
+<div class="bg-amber-950/50 border border-amber-900 rounded-xl py-2"><div class="font-bold text-amber-400" id="pie-segera">0</div><div class="text-slate-400">SEGERA</div></div>
+<div class="bg-rose-950/50 border border-rose-900 rounded-xl py-2"><div class="font-bold text-rose-400" id="pie-terlambat">0</div><div class="text-slate-400">TERLAMBAT</div></div>
+</div>
+<p class="text-[10px] text-slate-500 text-center">Tap tombol <b>Input</b> di bawah untuk tambah data, grafik langsung berubah.</p>
+</div>
+<div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-2"><h3 class="text-xs font-bold">Stok Per Jenis (FIFO - Real Gudang)</h3><div id="stok-jenis-list" class="space-y-2 text-xs"></div></div>
+<div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3"><div class="flex justify-between"><h3 class="text-xs font-bold">Status Masa Simpan Kritis</h3><span class="text-[10px] text-slate-400" id="total-records-badge">0 Transaksi</span></div><div id="mobile-critical-list" class="space-y-2 max-h-72 overflow-y-auto"></div></div>
+</div>
+<div id="tab-input" class="space-y-4 view-section hidden">
+<div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
+<div class="flex justify-between mb-3 pb-2 border-b border-slate-800"><div><h3 class="text-sm font-bold" id="form-title">Form Input Limbah B3</h3><p class="text-[10px] text-slate-400">Edit / Input Baru</p></div><span class="bg-sky-950 text-sky-400 border border-sky-800 px-2 py-0.5 rounded text-[10px] code-font" id="form-no-badge">#1</span></div>
+<form onsubmit="saveTransaction(event)" class="space-y-3 text-xs">
+<input type="hidden" id="edit-id" value="">
+<div><label class="text-[10px] text-slate-400 font-bold uppercase">Tipe Pencatatan</label><div class="grid grid-cols-2 gap-2 mt-1">
+<label class="cursor-pointer"><input type="radio" name="tipe_transaksi" value="MASUK" checked onchange="toggleTransaksiType()" class="peer hidden"><div class="text-center py-2 rounded-xl border border-slate-700 bg-slate-950 peer-checked:bg-emerald-950 peer-checked:border-emerald-500 peer-checked:text-emerald-400 font-bold">Limbah Masuk</div></label>
+<label class="cursor-pointer"><input type="radio" name="tipe_transaksi" value="KELUAR" onchange="toggleTransaksiType()" class="peer hidden"><div class="text-center py-2 rounded-xl border border-slate-700 bg-slate-950 peer-checked:bg-sky-950 peer-checked:border-sky-500 peer-checked:text-sky-400 font-bold">Diangkut Keluar</div></label>
+</div></div>
+<div class="grid grid-cols-2 gap-2.5"><div><label class="text-[10px] text-slate-400 font-bold uppercase">Tanggal</label><input type="date" id="inp-tanggal" required class="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"></div><div><label class="text-[10px] text-slate-400 font-bold uppercase">Batas Simpan</label><input type="number" id="inp-batas" value="180" required class="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"></div></div>
+<div><label class="text-[10px] text-slate-400 font-bold uppercase">Jenis LB3</label><select id="inp-jenis" onchange="autoFillMasterData()" required class="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"></select></div>
+<div class="bg-slate-950 border border-slate-800 rounded-xl p-2.5 flex justify-between"><div>Kode: <strong id="auto-kode" class="text-sky-400">B105d</strong></div><div>Sifat: <strong id="auto-sifat" class="text-amber-400">Mudah Menyala</strong></div></div>
+<div><label class="text-[10px] text-slate-400 font-bold uppercase">Nama Limbah Spesifik</label><input type="text" id="inp-nama" placeholder="Oli Bekas, Kaleng Cat..." required class="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"></div>
+<div class="grid grid-cols-3 gap-2"><div><label class="text-[10px] text-slate-400 font-bold uppercase">Unit</label><select id="inp-unit" class="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"><option>Workshop</option><option>Kantor</option><option>Kantor dan Mess Karyawan</option><option>Mess Karyawan</option><option>Engine Room</option><option>Bulking</option><option>Bulking / Tangki</option></select></div><div><label class="text-[10px] text-slate-400 font-bold uppercase" id="lbl-jumlah">Jumlah Masuk</label><input type="number" step="any" id="inp-jumlah" placeholder="0" required class="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"></div><div><label class="text-[10px] text-slate-400 font-bold uppercase">Satuan</label><select id="inp-satuan" class="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"><option>Liter</option><option>Kaleng</option><option>Bh</option><option>Kg</option><option>Drum</option></select></div></div>
+<div class="pt-2 border-t border-slate-800"><label class="text-[10px] text-amber-400 font-bold uppercase">Foto Bukti</label><div class="mt-1 flex gap-2"><label class="flex-1 text-center py-3 rounded-xl bg-slate-950 border border-dashed border-slate-700 text-sky-400 font-semibold cursor-pointer">Ambil / Pilih Foto<input type="file" id="inp-foto" accept="image/*" capture="environment" class="hidden" onchange="previewFoto(event)"></label><button type="button" onclick="hapusFoto()" class="px-3 bg-rose-950 border border-rose-800 text-rose-400 rounded-xl">Hapus</button></div><img id="preview-foto" class="hidden w-full h-36 object-cover rounded-xl mt-2"></div>
+<div id="field-keluar-extra" class="hidden space-y-2.5 pt-2 border-t border-slate-800"><div><label class="text-[10px] text-sky-400 font-bold uppercase">Transporter</label><input type="text" id="inp-transporter" class="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"></div><div><label class="text-[10px] text-sky-400 font-bold uppercase">No. Manifest</label><input type="text" id="inp-keterangan" class="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"></div></div>
+<div class="flex gap-2"><button type="submit" class="flex-1 bg-emerald-600 py-3.5 rounded-xl font-extrabold"><span id="btn-save-text">SIMPAN KE DATA</span></button><button type="button" onclick="batalEdit()" class="px-4 bg-slate-800 rounded-xl font-bold">Batal</button></div>
+</form></div></div>
+<div id="tab-log" class="space-y-3 view-section hidden">
+<div class="flex justify-between"><div><h3 class="text-sm font-bold">Data LB3 Harian</h3><p class="text-[10px] text-slate-400">Edit untuk ubah data, Hapus untuk buang baris</p></div></div>
+<div class="flex gap-2"><input type="text" id="search-log" onkeyup="renderLogList()" placeholder="Cari limbah..." class="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs"><select id="filter-status" onchange="renderLogList()" class="bg-slate-900 border border-slate-800 rounded-xl px-2 py-2 text-xs"><option value="">Semua</option><option value="TERLAMBAT">TERLAMBAT</option><option value="SEGERA DIANGKUT">SEGERA</option><option value="AMAN">AMAN</option></select></div>
+<div id="mobile-log-list" class="space-y-2.5"></div>
+</div>
+<div id="tab-excel" class="space-y-4 view-section hidden">
+<div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3"><h3 class="text-xs font-bold">Export Laporan Excel (1 Tombol Saja)</h3><p class="text-[11px] text-slate-400">Menghasilkan sheet Dashboard, Data LB3 Harian (rumus TODAY, Sisa Hari, Status), Bulanan, dan sifat sesuai patokan Monitoring_LB3.xlsx.</p><button onclick="exportFullExcel()" class="w-full bg-emerald-600 py-3 rounded-xl text-xs font-bold">UNDUH EXCEL (.XLSX)</button></div>
+<div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3"><h3 class="text-xs font-bold">Muat Excel Lama</h3><label class="block text-center px-4 py-3 rounded-xl bg-slate-950 border border-dashed border-slate-700 text-sky-400 text-xs cursor-pointer">Pilih File Excel<input type="file" accept=".xlsx,.xls" class="hidden" onchange="importFromExcel(event)"></label><button onclick="resetToDefaultData()" class="w-full text-[11px] text-slate-500">Reset ke Data Awal (36 Baris)</button></div>
+<div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 text-center"><h3 class="text-xs font-bold">QR Code</h3><div class="my-3 p-3 bg-white rounded-2xl inline-block" id="qr-container"></div></div>
+</div>
+</main>
+<div id="toast" class="fixed top-16 inset-x-4 max-w-md mx-auto bg-emerald-600 px-4 py-3 rounded-2xl text-xs font-bold flex justify-between z-50 transform -translate-y-24 opacity-0 transition-all"><span id="toast-msg">Berhasil!</span><span>✓</span></div>
+<nav class="fixed bottom-0 inset-x-0 bg-slate-900/95 border-t border-slate-800 z-40 max-w-md mx-auto grid grid-cols-4 py-2 text-center">
+<button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-btn text-emerald-400 flex flex-col items-center py-1"><i class="fa-solid fa-chart-pie text-sm"></i><span class="text-[10px] mt-1 font-semibold">Ringkasan</span></button>
+<button onclick="switchTab('input')" id="nav-input" class="nav-btn text-slate-400 flex flex-col items-center py-1"><div class="bg-sky-600 w-7 h-7 rounded-full flex items-center justify-center -mt-3 border-2 border-slate-900"><i class="fa-solid fa-plus text-xs"></i></div><span class="text-[10px] mt-0.5 font-semibold">Input</span></button>
+<button onclick="switchTab('log')" id="nav-log" class="nav-btn text-slate-400 flex flex-col items-center py-1"><i class="fa-solid fa-list-check text-sm"></i><span class="text-[10px] mt-1 font-semibold">Data Log</span></button>
+<button onclick="switchTab('excel')" id="nav-excel" class="nav-btn text-slate-400 flex flex-col items-center py-1"><i class="fa-solid fa-file-excel text-sm"></i><span class="text-[10px] mt-1 font-semibold">Excel & QR</span></button>
+</nav>
+<script>
+const masterSifat=[
+  {jenis:"Minyak Pelumas Bekas",kode:"B105d",unit:"Workshop",sifat:"Mudah Menyala",satuan:"Liter",batas:180},
+  {jenis:"Kain Majun Bekas",kode:"8110d",unit:"Workshop",sifat:"Beracun",satuan:"Kaleng",batas:180},
+  {jenis:"Filter Bekas",kode:"B109d",unit:"Workshop",sifat:"Beracun",satuan:"Bh",batas:180},
+  {jenis:"Aki/Baterai Bekas",kode:"A102d",unit:"Workshop",sifat:"Korosif",satuan:"Bh",batas:180},
+  {jenis:"Kemasan Bekas B3",kode:"9104d",unit:"Kantor",sifat:"Beracun",satuan:"Kaleng",batas:180},
+  {jenis:"Limbah Elektronik",kode:"B107d",unit:"Kantor",sifat:"Beracun",satuan:"Bh",batas:180},
+  {jenis:"Kemasan Bekas Tinta",kode:"B321-4",unit:"Kantor",sifat:"Beracun",satuan:"Bh",batas:180},
+  {jenis:"Sisa Produk Rumah Tangga Mengandung B3 & LB3",kode:"A108d",unit:"Kantor dan Mess Karyawan",sifat:"Beracun",satuan:"Kaleng",batas:180},
+  {jenis:"Sampah Elektronik",kode:"B107d",unit:"Mess Karyawan",sifat:"Beracun",satuan:"Bh",batas:180},
+  {jenis:"Sampah Kemasan Bekas B3",kode:"B1104d",unit:"Mess Karyawan",sifat:"Beracun",satuan:"Bh",batas:180}
+];
+
+const defaultLogData=[
+  {no:1,bulan:"Sep",tglMasuk:"2024-09-13",limbahMasuk:"Oli Bekas",jenis:"Minyak Pelumas Bekas",kode:"B105d",sifat:"Mudah Menyala",unit:"Workshop",satuan:"Liter",masuk:30,keluar:0,tglKeluar:"",batas:180,transporter:"",keterangan:"",foto:""},
+  {no:2,bulan:"Sep",tglMasuk:"2024-09-17",limbahMasuk:"Oil Filter",jenis:"Filter Bekas",kode:"B109d",sifat:"Beracun",unit:"Workshop",satuan:"Bh",masuk:1,keluar:0,tglKeluar:"",batas:180,transporter:"",keterangan:"",foto:""},
+  {no:3,bulan:"Jan",tglMasuk:"2025-01-13",limbahMasuk:"Oli Bekas",jenis:"Minyak Pelumas Bekas",kode:"B105d",sifat:"Mudah Menyala",unit:"Workshop",satuan:"Liter",masuk:30,keluar:0,tglKeluar:"",batas:180,transporter:"",keterangan:"",foto:""},
+  {no:4,bulan:"Apr",tglMasuk:"2025-04-13",limbahMasuk:"Oli Bekas",jenis:"Minyak Pelumas Bekas",kode:"B105d",sifat:"Mudah Menyala",unit:"Workshop",satuan:"Liter",masuk:30,keluar:0,tglKeluar:"",batas:180,transporter:"",keterangan:"",foto:""},
+  {no:5,bulan:"Jul",tglMasuk:"2025-07-13",limbahMasuk:"Oli Bekas",jenis:"Minyak Pelumas Bekas",kode:"B105d",sifat:"Mudah Menyala",unit:"Workshop",satuan:"Liter",masuk:30,keluar:0,tglKeluar:"",batas:180,transporter:"",keterangan:"",foto:""},
+  {no:6,bulan:"Okt",tglMasuk:"2025-10-13",limbahMasuk:"Oli Bekas",jenis:"Minyak Pelumas Bekas",kode:"B105d",sifat:"Mudah Menyala",unit:"Workshop",satuan:"Liter",masuk:30,keluar:0,tglKeluar:"",batas:180,transporter:"",keterangan:"",foto:""},
+  {no:7,bulan:"Jan",tglMasuk:"2026-01-13",limbahMasuk:"Oli Bekas",jenis:"Minyak Pelumas Bekas",kode:"B105d",sifat:"Mudah Menyala",unit:"Workshop",satuan:"Liter",masuk:30,keluar:0,tglKeluar:"",batas:180,transporter:"",keterangan:"",foto:""},
+  {no:8,bulan:"Apr",tglMasuk:"2026-04-13",limbahMasuk:"Oli Bekas",jenis:"Minyak Pelumas Bekas",kode:"B105d",sifat:"Mudah Menyala",unit:"Workshop",satuan:"Liter",masuk:30,keluar:0,tglKeluar:"",batas:180,transporter:"",keterangan:"",foto:""},
+  {no:9,bulan:"Jul",tglMasuk:"2026-07-13",limbahMasuk:"Oli Bekas",jenis:"Minyak Pelumas Bekas",kode:"B105d",sifat:"Mudah Menyala",unit:"Workshop",satuan:"Liter",masuk:30,keluar:0,tglKeluar:"",batas:180,transporter:"",keterangan:"",foto:""},
+  {no:10,bulan:"Okt",tglMasuk:"2026-10-01",limbahMasuk:"Oli Bekas",jenis:"Minyak Pelumas Bekas",kode:"B105d",sifat:"Mudah Menyala",unit:"Workshop",satuan:"Liter",masuk:30,keluar:0,tglKeluar:"",batas:180,transporter:"",keterangan:"",foto:""},
+  {no:11,bulan:"Jun",tglMasuk:"2026-06-10",limbahMasuk:"Kaleng Thinner",jenis:"Kemasan Bekas B3",kode:"9104d",sifat:"Beracun",unit:"Kantor",satuan:"Kaleng",masuk:7,keluar:0,tglKeluar:"",batas:180,transporter:"",keterangan:"",foto:""},
+  {no:12,bulan:"May",tglMasuk:"2026-05-13",limbahMasuk:"Aki/Baterai Bekas",jenis:"Aki/Baterai Bekas",kode:"A102d",sifat:"Korosif",unit:"Workshop",satuan:"Bh",masuk:5,keluar:0,tglKeluar:"",batas:180,transporter:"",keterangan:"",foto:""},
+  {no:13,bulan:"May",tglMasuk:"2026-05-13",limbahMasuk:"Jerigen bekas Chemtreat",jenis:"Kemasan Bekas B3",kode:"9104d",sifat:"Beracun",unit:"Kantor",satuan:"Bh",masuk:11,keluar:0,tglKeluar:"",batas:180,transporter:"",keterangan:"",foto:""},
+  {no:14,bulan:"May",tglMasuk:"2026-05-13",limbahMasuk:"Kaleng cat",jenis:"Kemasan Bekas B3",kode:"9104d",sifat:"Beracun",unit:"Kantor",satuan:"Kaleng",masuk:36,keluar:0,tglKeluar:"",batas:180,transporter:"",keterangan:"",foto:""},
+  {no:15,bulan:"May",tglMasuk:"2026-05-13",limbahMasuk:"Majun Terkontaminasi",jenis:"Kain Majun Bekas",kode:"8110d",sifat:"Beracun",unit:"Workshop",satuan:"Bh",masuk:4,keluar:0,tglKeluar:"",batas:180,transporter:"",keterangan:"",foto:""},
+  {no:16,bulan:"May",tglMasuk:"2026-05-13",limbahMasuk:"Kaleng chemical",jenis:"Kemasan Bekas B3",kode:"9104d",sifat:"Beracun",unit:"Kantor",satuan:"Kaleng",masuk:8,keluar:0,tglKeluar:"",batas:180,transporter:"",keterangan:"",foto:""},
+  {no:17,bulan:"May",tglMasuk:"2026-05-13",limbahMasuk:"Botol terkontaminasi",jenis:"Sisa Produk Rumah Tangga Mengandung B3 & LB3",kode:"A108d",sifat:"Beracun",unit:"Kantor dan Mess Karyawan",satuan:"Bh",masuk:6,keluar:0,tglKeluar:"",batas:180,transporter:"",keterangan:"",foto:""},
+  {no:18,bulan:"May",tglMasuk:"2026-05-13",limbahMasuk:"Air Filter",jenis:"Filter Bekas",kode:"B109d",sifat:"Beracun",unit:"Workshop",satuan:"Bh",masuk:1,keluar:0,tglKeluar:"",batas:180,transporter:"",keterangan:"",foto:""},
+  {no:19,bulan:"May",tglMasuk:"2026-05-13",limbahMasuk:"Jerigen/Galon Bekas Oli",jenis:"Kemasan Bekas B3",kode:"9104d",sifat:"Beracun",unit:"Kantor",satuan:"Bh",masuk:2,keluar:0,tglKeluar:"",batas:180,transporter:"",keterangan:"",foto:""},
+  {no:20,bulan:"May",tglMasuk:"2026-05-13",limbahMasuk:"Kuas/Roll cat",jenis:"Sisa Produk Rumah Tangga Mengandung B3 & LB3",kode:"A108d",sifat:"Beracun",unit:"Kantor dan Mess Karyawan",satuan:"Bh",masuk:34,keluar:0,tglKeluar:"",batas:180,transporter:"",keterangan:"",foto:""},
+  {no:21,bulan:"Oct",tglMasuk:"2026-10-15",limbahMasuk:"Kaleng cat",jenis:"Kemasan Bekas B3",kode:"9104d",sifat:"Beracun",unit:"Kantor",satuan:"Kaleng",masuk:1,keluar:0,tglKeluar:"",batas:180,transporter:"",keterangan:"",foto:""},
+  {no:22,bulan:"Oct",tglMasuk:"2026-10-20",limbahMasuk:"Kaleng Thinner",jenis:"Kemasan Bekas B3",kode:"9104d",sifat:"Beracun",unit:"Kantor",satuan:"Kaleng",masuk:2,keluar:0,tglKeluar:"",batas:180,transporter:"",keterangan:"",foto:""},
+  {no:23,bulan:"Oct",tglMasuk:"2026-10-20",limbahMasuk:"Kaleng cat",jenis:"Kemasan Bekas B3",kode:"9104d",sifat:"Beracun",unit:"Kantor",satuan:"Kaleng",masuk:2,keluar:0,tglKeluar:"",batas:180,transporter:"",keterangan:"",foto:""},
+  {no:24,bulan:"Oct",tglMasuk:"2026-10-21",limbahMasuk:"Kaleng cat",jenis:"Kemasan Bekas B3",kode:"9104d",sifat:"Beracun",unit:"Kantor",satuan:"Kaleng",masuk:3,keluar:0,tglKeluar:"",batas:180,transporter:"",keterangan:"",foto:""},
+  {no:25,bulan:"Oct",tglMasuk:"2026-10-21",limbahMasuk:"Kaleng Thinner",jenis:"Kemasan Bekas B3",kode:"9104d",sifat:"Beracun",unit:"Kantor",satuan:"Kaleng",masuk:1,keluar:0,tglKeluar:"",batas:180,transporter:"",keterangan:"",foto:""},
+  {no:26,bulan:"Oct",tglMasuk:"2026-10-20",limbahMasuk:"Lampu",jenis:"Limbah Elektronik",kode:"B107d",sifat:"Beracun",unit:"Kantor",satuan:"Bh",masuk:9,keluar:0,tglKeluar:"",batas:180,transporter:"",keterangan:"",foto:""},
+  {no:27,bulan:"Oct",tglMasuk:"2026-10-27",limbahMasuk:"Oli Bekas",jenis:"Minyak Pelumas Bekas",kode:"B105d",sifat:"Mudah Menyala",unit:"Workshop",satuan:"Liter",masuk:15,keluar:0,tglKeluar:"",batas:180,transporter:"",keterangan:"",foto:""},
+  {no:28,bulan:"Nov",tglMasuk:"2026-11-09",limbahMasuk:"Lampu",jenis:"Limbah Elektronik",kode:"B107d",sifat:"Beracun",unit:"Kantor",satuan:"Bh",masuk:2,keluar:0,tglKeluar:"",batas:180,transporter:"",keterangan:"",foto:""},
+  {no:29,bulan:"Nov",tglMasuk:"2026-11-11",limbahMasuk:"Kaleng cat",jenis:"Kemasan Bekas B3",kode:"9104d",sifat:"Beracun",unit:"Kantor",satuan:"Kaleng",masuk:5,keluar:0,tglKeluar:"",batas:180,transporter:"",keterangan:"",foto:""},
+  {no:30,bulan:"Nov",tglMasuk:"2026-11-12",limbahMasuk:"Kaleng cat",jenis:"Kemasan Bekas B3",kode:"9104d",sifat:"Beracun",unit:"Engine Room",satuan:"Kaleng",masuk:12,keluar:0,tglKeluar:"",batas:180,transporter:"",keterangan:"",foto:""},
+  {no:31,bulan:"Nov",tglMasuk:"2026-11-12",limbahMasuk:"Kaleng Thinner",jenis:"Kemasan Bekas B3",kode:"9104d",sifat:"Beracun",unit:"Engine Room",satuan:"Kaleng",masuk:9,keluar:0,tglKeluar:"",batas:180,transporter:"",keterangan:"",foto:""},
+  {no:32,bulan:"Nov",tglMasuk:"2026-11-13",limbahMasuk:"Kaleng Thinner",jenis:"Kemasan Bekas B3",kode:"9104d",sifat:"Beracun",unit:"Bulking",satuan:"Kaleng",masuk:6,keluar:0,tglKeluar:"",batas:180,transporter:"",keterangan:"",foto:""},
+  {no:33,bulan:"Nov",tglMasuk:"2026-11-13",limbahMasuk:"Kaleng cat",jenis:"Kemasan Bekas B3",kode:"9104d",sifat:"Beracun",unit:"Bulking",satuan:"Kaleng",masuk:9,keluar:0,tglKeluar:"",batas:180,transporter:"",keterangan:"",foto:""},
+  {no:34,bulan:"Nov",tglMasuk:"2026-11-14",limbahMasuk:"Kaleng Thinner",jenis:"Kemasan Bekas B3",kode:"9104d",sifat:"Beracun",unit:"Bulking",satuan:"Kaleng",masuk:7,keluar:0,tglKeluar:"",batas:180,transporter:"",keterangan:"",foto:""},
+  {no:35,bulan:"Nov",tglMasuk:"2026-11-14",limbahMasuk:"Kaleng cat",jenis:"Kemasan Bekas B3",kode:"9104d",sifat:"Beracun",unit:"Bulking",satuan:"Kaleng",masuk:9,keluar:0,tglKeluar:"",batas:180,transporter:"",keterangan:"",foto:""},
+  {no:36,bulan:"Nov",tglMasuk:"2026-11-15",limbahMasuk:"Kaleng cat",jenis:"Kemasan Bekas B3",kode:"9104d",sifat:"Beracun",unit:"Bulking",satuan:"Kaleng",masuk:6,keluar:0,tglKeluar:"",batas:180,transporter:"",keterangan:"",foto:""}
+];
+
+let _saved=null;
+try{_saved=JSON.parse(localStorage.getItem('lb3_v3_records')||"null");}catch(e){_saved=null;}
+let logData=(_saved && Array.isArray(_saved) && _saved.length>0) ? _saved : JSON.parse(JSON.stringify(defaultLogData));
+let tempFoto="";
+let pieChart=null;
+document.addEventListener("DOMContentLoaded",function(){initFormOptions();recalculateAll();renderAll();try{new QRCode(document.getElementById('qr-container'),{text:window.location.href,width:140,height:140});}catch(e){}});
+function initFormOptions(){const sel=document.getElementById('inp-jenis');sel.innerHTML='';masterSifat.forEach(function(it,idx){sel.innerHTML+='<option value="'+idx+'">'+it.jenis+' ('+it.kode+')</option>';});document.getElementById('inp-tanggal').value=new Date().toISOString().split('T')[0];autoFillMasterData();}
+function autoFillMasterData(){const m=masterSifat[document.getElementById('inp-jenis').value];if(!m)return;document.getElementById('auto-kode').textContent=m.kode;document.getElementById('auto-sifat').textContent=m.sifat;document.getElementById('inp-unit').value=m.unit;document.getElementById('inp-satuan').value=m.satuan;document.getElementById('inp-batas').value=m.batas;}
+function toggleTransaksiType(){const t=document.querySelector('input[name="tipe_transaksi"]:checked').value;document.getElementById('field-keluar-extra').classList.toggle('hidden',t!=="KELUAR");document.getElementById('lbl-jumlah').textContent=t==="KELUAR"?"Jumlah Keluar":"Jumlah Masuk";}
+function previewFoto(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=function(ev){tempFoto=ev.target.result;const img=document.getElementById('preview-foto');img.src=tempFoto;img.classList.remove('hidden');};r.readAsDataURL(f);}
+function hapusFoto(){tempFoto="";document.getElementById('inp-foto').value="";document.getElementById('preview-foto').classList.add('hidden');}
+function recalculateAll(){
+let sorted=logData.slice().sort(function(a,b){return new Date(a.tglMasuk)-new Date(b.tglMasuk);});
+logData.forEach(function(r){r.saldo=Number(r.masuk)||0;});
+sorted.forEach(function(r){
+let sisa=Number(r.keluar)||0;
+if(sisa>0){
+for(let target of sorted){
+if(target===r)continue;
+if(target.jenis!==r.jenis)continue;
+if(target.saldo<=0)continue;
+let potong=Math.min(target.saldo,sisa);
+target.saldo-=potong;
+sisa-=potong;
+if(sisa<=0)break;
+}
+r.saldo=0;
+}
+});
+const ref=new Date();
+logData.forEach(function(row,i){
+row.no=i+1;
+const umur=Math.max(0,Math.floor((ref-new Date(row.tglMasuk))/(1000*60*60*24)));
+row.umurHari=umur;
+row.sisaHari=(Number(row.batas)||180)-umur;
+if(!row.tglMasuk||!(Number(row.masuk)||Number(row.keluar))){row.statusMasa="";row.statusStok="";}
+else if(row.keluar>0){row.statusMasa="DIANGKUT";row.statusStok="KELUAR";}
+else if(row.saldo<=0){row.statusMasa="SELESAI / ANGKUT";row.statusStok="KOSONG";}
+else if(row.sisaHari<0){row.statusMasa="TERLAMBAT";row.statusStok="PRIORITAS";}
+else if(row.sisaHari<=30){row.statusMasa="SEGERA DIANGKUT";row.statusStok="NORMAL";}
+else{row.statusMasa="AMAN";row.statusStok="NORMAL";}
+});
+localStorage.setItem('lb3_v3_records',JSON.stringify(logData));
+document.getElementById('form-no-badge').textContent='#'+(logData.length+1);
+}
+function renderAll(){
+const totalMasuk=logData.reduce(function(s,r){return s+(Number(r.masuk)||0);},0);
+const totalKeluar=logData.reduce(function(s,r){return s+(Number(r.keluar)||0);},0);
+const totalSaldo=logData.reduce(function(s,r){return s+(Number(r.saldo)||0);},0);
+const cntAman=logData.filter(function(r){return r.statusMasa==="AMAN";}).length;
+const cntSegera=logData.filter(function(r){return r.statusMasa==="SEGERA DIANGKUT";}).length;
+const cntTerlambat=logData.filter(function(r){return r.statusMasa==="TERLAMBAT";}).length;
+const cntDiangkut=logData.filter(function(r){return r.statusMasa==="DIANGKUT";}).length;
+document.getElementById('m-saldo').textContent=totalSaldo.toLocaleString('id-ID');
+document.getElementById('m-masuk').textContent=totalMasuk.toLocaleString('id-ID');
+document.getElementById('m-keluar').textContent=totalKeluar.toLocaleString('id-ID');
+document.getElementById('m-aman').textContent=cntAman+' Lot';
+document.getElementById('m-warning').textContent=cntSegera+' Lot';
+document.getElementById('m-terlambat').textContent=cntTerlambat;
+document.getElementById('total-records-badge').textContent=logData.length+' Baris Data';
+document.getElementById('pie-aman').textContent=cntAman;
+document.getElementById('pie-segera').textContent=cntSegera;
+document.getElementById('pie-terlambat').textContent=cntTerlambat;
+drawPie(cntAman,cntSegera,cntTerlambat,cntDiangkut);
+const stokEl=document.getElementById('stok-jenis-list');
+stokEl.innerHTML='';
+masterSifat.forEach(function(m){
+const items=logData.filter(function(r){return r.jenis===m.jenis;});
+const stok=items.reduce(function(s,r){return s+(Number(r.saldo)||0);},0);
+if(items.length>0){stokEl.innerHTML+='<div class="flex justify-between bg-slate-950 border border-slate-800 rounded-xl px-3 py-2"><span>'+m.jenis+' <span class="text-sky-400">('+m.kode+')</span></span><b class="text-emerald-400">'+stok+' '+m.satuan+'</b></div>';}
+});
+const crit=document.getElementById('mobile-critical-list');
+crit.innerHTML='';
+logData.filter(function(r){return r.statusMasa==="TERLAMBAT"||r.statusMasa==="SEGERA DIANGKUT";}).forEach(function(item){
+const late=item.statusMasa==="TERLAMBAT";
+crit.innerHTML+='<div class="p-2.5 bg-slate-950 rounded-xl border '+(late?'border-rose-900/60':'border-amber-900/60')+' flex justify-between text-xs"><div><div class="font-bold">'+item.limbahMasuk+' ('+item.kode+')</div><div class="text-[10px] text-slate-400">'+item.tglMasuk+' - '+item.saldo+' '+item.satuan+'</div></div><div class="text-right"><span class="px-2 py-0.5 rounded text-[9px] font-bold '+(late?'bg-rose-950 text-rose-400':'bg-amber-950 text-amber-400')+'">'+item.statusMasa+'</span><div class="text-[10px]">'+item.sisaHari+' hari</div></div></div>';
+});
+renderLogList();
+}
+function drawPie(a,b,c,d){
+const ctx=document.getElementById('pieChart');
+if(!ctx) return;
+if(pieChart) pieChart.destroy();
+const pieLabels=["AMAN","SEGERA DIANGKUT","TERLAMBAT","DIANGKUT"];
+const pieData=[a,b,c,d];
+const pieColors=["#10b981","#f59e0b","#f43f5e","#38bdf8"];
+pieChart=new Chart(ctx,{type:"doughnut",data:{labels:pieLabels,datasets:[{data:pieData,backgroundColor:pieColors,borderWidth:2}]},options:{cutout:"68%",plugins:{legend:{display:false}}}});
+}
+function renderLogList(){
+const q=(document.getElementById('search-log') ? document.getElementById('search-log').value : "").toLowerCase();
+const st=document.getElementById('filter-status') ? document.getElementById('filter-status').value : "";
+const c=document.getElementById('mobile-log-list');
+c.innerHTML='';
+logData.slice().reverse().filter(function(r){return ((r.limbahMasuk||"").toLowerCase().includes(q)||(r.jenis||"").toLowerCase().includes(q))&&(!st||r.statusMasa===st);}).forEach(function(r){
+let badge="bg-emerald-950 text-emerald-400 border-emerald-800";
+if(r.statusMasa==="TERLAMBAT") badge="bg-rose-950 text-rose-400 border-rose-800";
+else if(r.statusMasa==="SEGERA DIANGKUT") badge="bg-amber-950 text-amber-400 border-amber-800";
+let fotoHtml='<div class="text-[10px] text-slate-500 italic">Tidak ada foto</div>';
+if(r.foto) fotoHtml='<img src="'+r.foto+'" class="w-full h-28 object-cover rounded-xl">';
+c.innerHTML+='<div class="p-3 bg-slate-900 border border-slate-800 rounded-2xl space-y-2 text-xs"><div class="flex justify-between"><div><span class="text-slate-500">#'+r.no+'</span> <b class="text-sm">'+r.limbahMasuk+'</b><div class="text-[10px] text-slate-400">'+r.jenis+'</div></div><span class="px-2 py-0.5 rounded border text-[9px] font-bold h-fit '+badge+'">'+r.statusMasa+'</span></div>'+fotoHtml+'<div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-800/80 text-[10px]"><div>Kode: <b class="text-sky-400">'+r.kode+'</b> - '+r.unit+'</div><div>Masuk / Saldo: <b class="text-emerald-400">+'+r.masuk+'</b> / '+r.saldo+' '+r.satuan+'</div><div class="text-right">'+r.tglMasuk+' ('+r.sisaHari+'h)</div></div><div class="flex gap-2"><button onclick="editTransaction('+r.no+')" class="flex-1 bg-amber-600/20 border border-amber-800 text-amber-400 py-2 rounded-xl font-bold">EDIT</button><button onclick="deleteTransaction('+r.no+')" class="flex-1 bg-rose-600/20 border border-rose-800 text-rose-400 py-2 rounded-xl font-bold">HAPUS</button></div></div>';
+});
+}
+function editTransaction(no){
+const r=logData.find(function(x){return x.no===no;});
+if(!r) return;
+document.getElementById('edit-id').value=r.no;
+document.getElementById('form-title').textContent="Edit Data #"+r.no;
+document.getElementById('btn-save-text').textContent="UPDATE DATA";
+document.getElementById('inp-tanggal').value=r.tglMasuk;
+document.getElementById('inp-nama').value=r.limbahMasuk;
+document.getElementById('inp-jumlah').value=r.keluar>0?r.keluar:r.masuk;
+document.getElementById('inp-batas').value=r.batas;
+document.getElementById('inp-unit').value=r.unit;
+document.getElementById('inp-satuan').value=r.satuan;
+const idx=masterSifat.findIndex(function(m){return m.jenis===r.jenis;});
+if(idx>=0) document.getElementById('inp-jenis').value=idx;
+autoFillMasterData();
+document.querySelector('input[name="tipe_transaksi"][value="'+(r.keluar>0?'KELUAR':'MASUK')+'"]').checked=true;
+toggleTransaksiType();
+document.getElementById('inp-transporter').value=r.transporter||"";
+document.getElementById('inp-keterangan').value=r.keterangan||"";
+tempFoto=r.foto||"";
+const img=document.getElementById('preview-foto');
+if(tempFoto){img.src=tempFoto;img.classList.remove('hidden');}else{img.classList.add('hidden');}
+switchTab('input');
+showToast("Mode Edit");
+}
+function batalEdit(){document.getElementById('edit-id').value="";document.getElementById('form-title').textContent="Form Input Limbah B3";document.getElementById('btn-save-text').textContent="SIMPAN KE DATA";document.getElementById('inp-nama').value="";document.getElementById('inp-jumlah').value="";hapusFoto();switchTab('dashboard');}
+function deleteTransaction(no){if(!confirm("Hapus data #"+no+" ?")) return;logData=logData.filter(function(x){return x.no!==no;});recalculateAll();renderAll();showToast("Data dihapus");}
+function saveTransaction(e){
+e.preventDefault();
+const tipe=document.querySelector('input[name="tipe_transaksi"]:checked').value;
+const m=masterSifat[document.getElementById('inp-jenis').value];
+const tgl=document.getElementById('inp-tanggal').value;
+const qty=parseFloat(document.getElementById('inp-jumlah').value)||0;
+const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const bulanStr=months[new Date(tgl).getMonth()]||"Nov";
+const editId=document.getElementById('edit-id').value;
+const payload={bulan:bulanStr,tglMasuk:tgl,limbahMasuk:document.getElementById('inp-nama').value,jenis:m.jenis,kode:m.kode,sifat:m.sifat,unit:document.getElementById('inp-unit').value,satuan:document.getElementById('inp-satuan').value,masuk:tipe==="MASUK"?qty:0,keluar:tipe==="KELUAR"?qty:0,tglKeluar:tipe==="KELUAR"?tgl:"",batas:parseInt(document.getElementById('inp-batas').value)||180,transporter:tipe==="KELUAR"?document.getElementById('inp-transporter').value:"",keterangan:tipe==="KELUAR"?document.getElementById('inp-keterangan').value:"",foto:tempFoto||""};
+if(editId){const idx=logData.findIndex(function(x){return x.no==editId;});if(idx>=0) logData[idx]=Object.assign({},logData[idx],payload);}
+else logData.push(Object.assign({no:logData.length+1},payload));
+document.getElementById('edit-id').value="";
+recalculateAll();renderAll();
+document.getElementById('inp-nama').value="";
+document.getElementById('inp-jumlah').value="";
+hapusFoto();
+switchTab('dashboard');
+showToast("Disimpan! Grafik Pie ter-update.");
+}
+function exportFullExcel(){
+const wb=XLSX.utils.book_new();
+const MAX=Math.max(200,logData.length+10);
+
+// 1. Sheet sifat (master referensi VLOOKUP)
+const sifatRows=[
+  ["","","","","",""],
+  ["","","","","",""],
+  ["","","","","",""],
+  ["","","","","",""],
+  ["","","Jenis Limbah","Kode Limbah B3","Sumber/Unit","Karakteristik"]
+];
+masterSifat.forEach(function(m){
+  sifatRows.push(["","",m.jenis,m.kode,m.unit,m.sifat]);
+});
+const wsSifat=XLSX.utils.aoa_to_sheet(sifatRows);
+wsSifat["!cols"]=[{wch:4},{wch:4},{wch:48},{wch:18},{wch:28},{wch:18}];
+XLSX.utils.book_append_sheet(wb,wsSifat,"sifat");
+
+// 2. Sheet Dashboard
+const dash=[
+  ["DASHBOARD MONITORING LB3"],
+  ["Monitoring administrasi LB3 - update data pada sheet 'Data LB3 Harian'"],
+  [],[],
+  ["Total Transaksi","","Total Masuk","","Total Keluar","","Saldo LB3"],
+  ["=COUNTA('Data LB3 Harian'!C2:C"+MAX+")","","=SUM('Data LB3 Harian'!J2:J"+MAX+")","","=SUM('Data LB3 Harian'!K2:K"+MAX+")","","=SUM('Data LB3 Harian'!L2:L"+MAX+")"],
+  [],
+  ["Status Aman","","Segera Diangkut","","Terlambat","","Prioritas"],
+  ["=COUNTIF('Data LB3 Harian'!Q2:Q"+MAX+",\"AMAN\")","","=COUNTIF('Data LB3 Harian'!Q2:Q"+MAX+",\"SEGERA DIANGKUT\")","","=COUNTIF('Data LB3 Harian'!Q2:Q"+MAX+",\"TERLAMBAT\")","","=COUNTIF('Data LB3 Harian'!R2:R"+MAX+",\"PRIORITAS\")"],
+  [],
+  ["Status Masa Simpan"],
+  ["Status","Jumlah"],
+  ["AMAN","=COUNTIF('Data LB3 Harian'!Q2:Q"+MAX+",A13)"],
+  ["SEGERA DIANGKUT","=COUNTIF('Data LB3 Harian'!Q2:Q"+MAX+",A14)"],
+  ["TERLAMBAT","=COUNTIF('Data LB3 Harian'!Q2:Q"+MAX+",A15)"],
+  [],
+  ["Rekap Jenis LB3"],
+  ["Jenis LB3","Jumlah Masuk","Jumlah Keluar","Saldo"]
+];
+const startRekap=dash.length+1;
+masterSifat.forEach(function(m,i){
+  const r=startRekap+i;
+  dash.push([
+    m.jenis,
+    "=SUMIF('Data LB3 Harian'!$E$2:$E$"+MAX+",A"+r+",'Data LB3 Harian'!$J$2:$J$"+MAX+")",
+    "=SUMIF('Data LB3 Harian'!$E$2:$E$"+MAX+",A"+r+",'Data LB3 Harian'!$K$2:$K$"+MAX+")",
+    "=B"+r+"-C"+r
+  ]);
+});
+const endRekap=startRekap+masterSifat.length-1;
+dash.push(["Total","=SUM(B"+startRekap+":B"+endRekap+")","=SUM(C"+startRekap+":C"+endRekap+")","=SUM(D"+startRekap+":D"+endRekap+")"]);
+const wsDash=XLSX.utils.aoa_to_sheet(dash);
+wsDash["!merges"]=[{s:{r:0,c:0},e:{r:0,c:7}},{s:{r:1,c:0},e:{r:1,c:7}},{s:{r:4,c:0},e:{r:4,c:1}},{s:{r:4,c:2},e:{r:4,c:3}},{s:{r:4,c:4},e:{r:4,c:5}},{s:{r:4,c:6},e:{r:4,c:7}},{s:{r:5,c:0},e:{r:5,c:1}},{s:{r:5,c:2},e:{r:5,c:3}},{s:{r:5,c:4},e:{r:5,c:5}},{s:{r:5,c:6},e:{r:5,c:7}},{s:{r:7,c:0},e:{r:7,c:1}},{s:{r:7,c:2},e:{r:7,c:3}},{s:{r:7,c:4},e:{r:7,c:5}},{s:{r:7,c:6},e:{r:7,c:7}},{s:{r:8,c:0},e:{r:8,c:1}},{s:{r:8,c:2},e:{r:8,c:3}},{s:{r:8,c:4},e:{r:8,c:5}},{s:{r:8,c:6},e:{r:8,c:7}}];
+wsDash["!cols"]=[{wch:48},{wch:16},{wch:16},{wch:16},{wch:16},{wch:16},{wch:16},{wch:16}];
+if(wsDash["A1"]) wsDash["A1"].s={fill:{fgColor:{rgb:"FF1F4E78"}},font:{bold:true,color:{rgb:"FFFFFFFF"},sz:20}};
+["A5","C5","E5","G5","A8","C8","E8","G8"].forEach(function(c){if(wsDash[c]) wsDash[c].s={fill:{fgColor:{rgb:"FFD9EAF7"}},font:{bold:true},alignment:{horizontal:"center",vertical:"center"}};});
+["A6","C6","E6","G6","A9","C9","E9","G9"].forEach(function(c){if(wsDash[c]) wsDash[c].s={font:{bold:true,sz:18},alignment:{horizontal:"center",vertical:"center"}};});
+XLSX.utils.book_append_sheet(wb,wsDash,"Dashboard");
+
+// 3. Sheet Data LB3 Harian
+const headers=["No","Bulan","Tanggal Masuk","Limbah Masuk","Jenis LB3","Kode Limbah B3","Karakteristik","Sumber/Unit","Satuan","Jumlah Masuk","Jumlah Keluar","Saldo","Tanggal Keluar","Umur Simpan (Hari)","Batas Simpan (Hari)","Sisa Hari","Status Masa Simpan","Status Stok","Transporter/Pengelola","Keterangan"];
+const dataRows=logData.map(function(r,idx){
+  const row=idx+2;
+  const tglMasukDate=r.tglMasuk?new Date(r.tglMasuk+"T00:00:00"):"";
+  const tglKeluarDate=r.tglKeluar?new Date(r.tglKeluar+"T00:00:00"):"";
+  return [
+    idx===0?1:{f:"A"+(row-1)+"+1"},
+    r.bulan||"",
+    tglMasukDate,
+    r.limbahMasuk||"",
+    r.jenis||"",
+    {f:"VLOOKUP(E"+row+",sifat!$C$6:$F$15,2,0)"},
+    {f:"VLOOKUP(E"+row+",sifat!$C$6:$F$15,4,0)"},
+    {f:"VLOOKUP(E"+row+",sifat!$C$6:$F$15,3,0)"},
+    r.satuan||"",
+    Number(r.masuk)||0,
+    Number(r.keluar)||0,
+    {f:"IF(COUNTA(J"+row+":K"+row+")=0,\"\",J"+row+"-K"+row+")"},
+    tglKeluarDate,
+    {f:"IF(C"+row+"=\"\",\"\",IF(M"+row+"=\"\",TODAY()-C"+row+",M"+row+"-C"+row+"))"},
+    Number(r.batas)||180,
+    {f:"IF(OR(N"+row+"=\"\",O"+row+"=\"\"),\"\",O"+row+"-N"+row+")"},
+    {f:"IF(P"+row+"=\"\",\"\",IF(P"+row+"<0,\"TERLAMBAT\",IF(P"+row+"<=30,\"SEGERA DIANGKUT\",\"AMAN\")))"},
+    {f:"IF(L"+row+"=\"\",\"\",IF(L"+row+"<=0,\"KOSONG\",IF(Q"+row+"=\"TERLAMBAT\",\"PRIORITAS\",\"NORMAL\")))"},
+    r.transporter||"",
+    r.keterangan||""
+  ];
+});
+const wsData=XLSX.utils.aoa_to_sheet([headers].concat(dataRows));
+wsData["!cols"]=[{wch:8},{wch:8},{wch:18},{wch:25},{wch:48},{wch:18},{wch:18},{wch:26},{wch:13},{wch:18},{wch:18},{wch:12},{wch:18},{wch:21},{wch:21},{wch:14},{wch:22},{wch:18},{wch:28},{wch:21}];
+wsData["!freeze"]={xSplit:0,ySplit:1,topLeftCell:"A2"};
+wsData["!autofilter"]={ref:"A1:T"+(logData.length+1)};
+const headerStyle={fill:{fgColor:{rgb:"FF1F4E78"}},font:{bold:true,color:{rgb:"FFFFFFFF"},sz:11},alignment:{vertical:"center"},border:{top:{style:"thin"},bottom:{style:"thin"},left:{style:"thin"},right:{style:"thin"}}};
+const thinBorder={border:{top:{style:"thin"},bottom:{style:"thin"},left:{style:"thin"},right:{style:"thin"}}};
+for(let c=0;c<20;c++){const a=XLSX.utils.encode_cell({r:0,c:c});if(wsData[a]) wsData[a].s=headerStyle;}
+for(let r=1;r<=logData.length;r++){for(let c=0;c<20;c++){const a=XLSX.utils.encode_cell({r:r,c:c});if(!wsData[a]) continue;wsData[a].s=Object.assign({},wsData[a].s||{},thinBorder,{alignment:{horizontal:(c===0||c===1||c===8||c===9||c===10||c===11||c===13||c===14||c===15)?"center":"left",vertical:"center"}});if(c===2||c===12) wsData[a].z="dd-mmm-yyyy";}}
+XLSX.utils.book_append_sheet(wb,wsData,"Data LB3 Harian");
+
+// 4. Sheet Bulanan
+const bulanCols=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const bulananRows=[
+  ["","Monitoring Bulanan Limbah B3 2026"],
+  [],
+  ["No","Jenis LB3","Kode Limbah B3","Karakteristik","Sumber/Unit","Satuan"].concat(bulanCols)
+];
+masterSifat.forEach(function(m,idx){
+  const r=idx+4;
+  const rowArr=[
+    idx===0?1:{f:"A"+(r-1)+"+1"},
+    m.jenis,
+    {f:"VLOOKUP(B"+r+",sifat!$C$6:$F$15,2,0)"},
+    {f:"VLOOKUP(B"+r+",sifat!$C$6:$F$15,4,0)"},
+    {f:"VLOOKUP(B"+r+",sifat!$C$6:$F$15,3,0)"},
+    m.satuan
+  ];
+  bulanCols.forEach(function(b,bIdx){
+    const colLet=XLSX.utils.encode_col(6+bIdx);
+    rowArr.push({f:"SUMIFS('Data LB3 Harian'!$J:$J,'Data LB3 Harian'!$E:$E,Bulanan!$B"+r+",'Data LB3 Harian'!$B:$B,Bulanan!"+colLet+"$3)"});
+  });
+  bulananRows.push(rowArr);
+});
+const totBulanRow=["TOTAL","","","","",""];
+bulanCols.forEach(function(b,bIdx){
+  const colLet=XLSX.utils.encode_col(6+bIdx);
+  totBulanRow.push({f:"SUM("+colLet+"4:"+colLet+(3+masterSifat.length)+")"});
+});
+bulananRows.push(totBulanRow);
+const wsBulanan=XLSX.utils.aoa_to_sheet(bulananRows);
+wsBulanan["!cols"]=[{wch:6},{wch:48},{wch:16},{wch:16},{wch:26},{wch:10}].concat(bulanCols.map(function(){return {wch:9};}));
+XLSX.utils.book_append_sheet(wb,wsBulanan,"Bulanan");
+
+XLSX.writeFile(wb,"Monitoring_LB3_"+new Date().toISOString().split('T')[0]+".xlsx",{cellStyles:true});
+showToast("Laporan Excel berhasil diunduh sesuai patokan!");
+}
+function importFromExcel(e){
+const f=e.target.files[0];if(!f) return;
+const rd=new FileReader();
+rd.onload=function(ev){
+const wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array',cellDates:true});
+const sn=wb.SheetNames.find(function(n){return n.toLowerCase().includes('harian');})||wb.SheetNames[0];
+const rows=XLSX.utils.sheet_to_json(wb.Sheets[sn]);
+if(rows.length>0){
+const fmtDate=function(v){if(!v) return "";if(v instanceof Date) return v.toISOString().split('T')[0];if(typeof v==='number'){const d=new Date(Math.round((v-25569)*86400*1000));return d.toISOString().split('T')[0];}return String(v).split('T')[0];};
+logData=rows.filter(function(r){return (r["Limbah Masuk"]||r["Limbah"])&&((Number(r["Jumlah Masuk"]||r["Masuk"])||Number(r["Jumlah Keluar"]||r["Keluar"])));}).map(function(r,i){return {no:Number(r["No"])||i+1,bulan:r["Bulan"]||"Nov",tglMasuk:fmtDate(r["Tanggal Masuk"]),limbahMasuk:r["Limbah Masuk"]||r["Limbah"]||"-",jenis:r["Jenis LB3"]||r["Jenis"]||"Minyak Pelumas Bekas",kode:r["Kode Limbah B3"]||r["Kode"]||"B105d",sifat:r["Karakteristik"]||r["Sifat"]||"Beracun",unit:r["Sumber/Unit"]||r["Unit"]||"Workshop",satuan:r["Satuan"]||"Liter",masuk:Number(r["Jumlah Masuk"]||r["Masuk"])||0,keluar:Number(r["Jumlah Keluar"]||r["Keluar"])||0,tglKeluar:fmtDate(r["Tanggal Keluar"]),batas:Number(r["Batas Simpan (Hari)"]||r["Batas"])||180,transporter:r["Transporter/Pengelola"]||r["Transporter"]||"",keterangan:r["Keterangan"]||"",foto:""};});
+recalculateAll();renderAll();showToast("Berhasil memuat "+logData.length+" baris data Excel");
+}
+};
+rd.readAsArrayBuffer(f);
+}
+function resetToDefaultData(){if(confirm("Reset ke data awal (36 Baris)?")){localStorage.removeItem('lb3_v3_records');logData=JSON.parse(JSON.stringify(defaultLogData));recalculateAll();renderAll();}}
+function switchTab(id){document.querySelectorAll('.view-section').forEach(function(el){el.classList.add('hidden');});document.querySelectorAll('.nav-btn').forEach(function(el){el.classList.remove('text-emerald-400');el.classList.add('text-slate-400');});document.getElementById('tab-'+id).classList.remove('hidden');document.getElementById('nav-'+id).classList.remove('text-slate-400');document.getElementById('nav-'+id).classList.add('text-emerald-400');}
+function showToast(m){const t=document.getElementById('toast');document.getElementById('toast-msg').textContent=m;t.classList.remove('-translate-y-24','opacity-0');setTimeout(function(){t.classList.add('-translate-y-24','opacity-0');},3000);}
+</script>
+</body>
+</html>
